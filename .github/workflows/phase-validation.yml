@@ -1,0 +1,43 @@
+name: Independent phase-fix validation
+on:
+  push:
+    branches: [validate/phase-fixes]
+permissions:
+  contents: read
+jobs:
+  validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: baseline
+            ref: 5307c1ef5db76a96453c73bc03ce85dea56c5ef1
+          - variant: sr-phase
+            ref: 853d7e0ab5b0163d6e616af28ec639cecbec4d9f
+          - variant: sigma2-phase
+            ref: ffaecb0c140eb01cb74dacd3352ff6d7625be591
+    env:
+      OMP_NUM_THREADS: 2
+      OMP_MAX_ACTIVE_LEVELS: 1
+      OPENBLAS_NUM_THREADS: 1
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ matrix.ref }}
+          path: validated-source
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y g++ make libgsl-dev liblapack-dev libblas-dev
+      - name: Build and validate exact candidate
+        run: python3 .github/phase-validation.py '${{ matrix.variant }}' validated-source
+      - name: Preserve validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-validation-${{ matrix.variant }}
+          path: validation-logs/
+          retention-days: 14
